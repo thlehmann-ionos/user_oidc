@@ -26,7 +26,9 @@ declare(strict_types=1);
 namespace OCA\UserOIDC\Controller;
 
 use OCA\UserOIDC\AppInfo\Application;
+use OCA\UserOIDC\Db\ProviderMapper;
 use OCA\UserOIDC\Db\UserMapper;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\Files\IRootFolder;
@@ -38,6 +40,9 @@ class ApiController extends Controller {
 	/** @var UserMapper */
 	private $userMapper;
 
+	/** @var ProviderMapper */
+	private $providerMapper;
+
 	/** @var IUserManager */
 	private $userManager;
 	/**
@@ -48,11 +53,13 @@ class ApiController extends Controller {
 	public function __construct(
 		IRequest $request,
 		IRootFolder $root,
+		ProviderMapper $providerMapper,
 		UserMapper $userMapper,
 		IUserManager $userManager
 	) {
 		parent::__construct(Application::APP_ID, $request);
 		$this->userMapper = $userMapper;
+		$this->providerMapper = $providerMapper;
 		$this->userManager = $userManager;
 		$this->root = $root;
 	}
@@ -69,6 +76,12 @@ class ApiController extends Controller {
 	 */
 	public function createUser(int $providerId, string  $userId, ?string $displayName = null,
 		?string $email = null, ?string $quota = null): DataResponse {
+		try {
+			$this->providerMapper->getProvider($providerId);
+		} catch (\Exception $ex) {
+			return new DataResponse(["message" => "Provider with ID " . $providerId . " not found"], Http::STATUS_NOT_FOUND);
+		}
+
 		$backendUser = $this->userMapper->getOrCreate($providerId, $userId);
 		$user = $this->userManager->get($backendUser->getUserId());
 
